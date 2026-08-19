@@ -3,6 +3,19 @@ import EntitlementKitCore
 import Foundation
 import RevenueCat
 
+public enum RedemptionFailure: Equatable, Sendable {
+    case invalidToken
+    case purchaseBelongsToOtherUser
+    case expired
+    case providerError
+}
+
+public enum RedemptionResult: Equatable, Sendable {
+    case notRedemptionURL
+    case redeemed(EntitlementStatus)
+    case failed(RedemptionFailure)
+}
+
 @MainActor
 public final class RevenueCatEntitlementGateway: ObservableObject {
     @Published public private(set) var status: EntitlementStatus = .free
@@ -43,13 +56,22 @@ public final class RevenueCatEntitlementGateway: ObservableObject {
         }
     }
 
-    public func redeem(url: URL) async -> Bool {
-        guard let redemption = url.asWebPurchaseRedemption else { return false }
+    public func redeem(url: URL) async -> RedemptionResult {
+        guard let redemption = url.asWebPurchaseRedemption else { return .notRedemptionURL }
         let result = await Purchases.shared.redeemWebPurchase(redemption)
-        if case .success(let info) = result {
+        switch result {
+        case .success(let info):
             updateStatus(map(info))
+            return .redeemed(status)
+        case .invalidToken:
+            return .failed(.invalidToken)
+        case .purchaseBelongsToOtherUser:
+            return .failed(.purchaseBelongsToOtherUser)
+        case .expired:
+            return .failed(.expired)
+        case .error:
+            return .failed(.providerError)
         }
-        return true
     }
 
     private func map(_ info: CustomerInfo) -> EntitlementStatus {
