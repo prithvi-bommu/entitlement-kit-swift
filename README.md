@@ -114,3 +114,5 @@ swift package resolve
 ```
 
 The core target is dependency-free and is covered by Swift Testing. RevenueCat integration should additionally be tested against a sandbox Web Purchase Link and a registered callback scheme in a sample host app.
+
+All ongoing changes use topic branches and pull requests into `main`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the review and release workflow.
