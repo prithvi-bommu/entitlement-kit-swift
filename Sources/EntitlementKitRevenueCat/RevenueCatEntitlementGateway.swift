@@ -1,12 +1,11 @@
+import Combine
 import EntitlementKitCore
 import Foundation
-import Observation
 import RevenueCat
 
 @MainActor
-@Observable
-public final class RevenueCatEntitlementGateway {
-    public private(set) var status: EntitlementStatus = .free
+public final class RevenueCatEntitlementGateway: ObservableObject {
+    @Published public private(set) var status: EntitlementStatus = .free
 
     private let apiKey: String
     private let entitlementID: String
