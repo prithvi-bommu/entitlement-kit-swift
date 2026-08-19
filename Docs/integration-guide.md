@@ -1,0 +1,74 @@
+# Host integration guide
+
+This guide describes the smallest supported host-app integration for anonymous RevenueCat Web Billing. Keep every product-specific value in the host app: public SDK key, entitlement ID, Web Purchase Link, package IDs, and callback scheme.
+
+## 1. Construct stable local dependencies
+
+Use a stable installation identity and a status cache whose keys are unique to the host app. `UserDefaultsInstallationIdentity` is installation-scoped, so replace it with a host-owned Keychain implementation only when persistence across deletion and reinstall is a product requirement.
+
+```swift
+let identity = UserDefaultsInstallationIdentity(key: "com.example.app.installation-id")
+let statusStore = UserDefaultsEntitlementStatusStore(
+    key: "com.example.app.cached-entitlement"
+)
+
+let gateway = RevenueCatEntitlementGateway(
+    apiKey: "appl_public_sdk_key",
+    entitlementID: "example_pro",
+    lifetimePlanIDs: ["com.example.app.lifetime"],
+    identity: identity,
+    statusStore: statusStore
+)
+
+await gateway.configure()
+```
+
+The cache gives the host an offline status, but RevenueCat remains the source of truth whenever it can be reached.
+
+## 2. Build an anonymous checkout URL
+
+Create an anonymous RevenueCat Web Purchase Link in the dashboard, then map host plan IDs to RevenueCat package IDs. Do not include the local installation ID or an `app_user_id` in this URL.
+
+```swift
+let billing = WebBillingConfiguration(
+    purchaseLink: URL(string: "https://pay.rev.cat/example")!,
+    packageIDsByPlanID: [
+        "monthly": "$rc_monthly",
+        "annual": "$rc_annual"
+    ],
+    callbackScheme: "dashboard-generated-scheme"
+)
+
+guard let checkoutURL = WebPurchaseLinkBuilder.makeURL(
+    configuration: billing,
+    planID: "annual"
+) else {
+    // The host should show a configuration-safe fallback rather than opening checkout.
+    return
+}
+```
+
+Open `checkoutURL` with the platform browser API. Opening checkout is not a purchase success event.
+
+## 3. Register and route the callback
+
+Register the dashboard-generated callback scheme in the app target. Forward incoming URLs to `gateway.redeem(url:)`; the host should handle only URLs routed to its own scheme and unlock features only after the gateway receives provider-confirmed entitlement state.
+
+```swift
+.onOpenURL { url in
+    guard url.scheme?.caseInsensitiveCompare(billing.callbackScheme) == .orderedSame else {
+        return
+    }
+    Task { await gateway.redeem(url: url) }
+}
+```
+
+The user may open the Redemption Link on a different device. RevenueCat's redemption flow associates it with the local app user identity; EntitlementKit deliberately has no device cap.
+
+## 4. Gate product features in the host
+
+Observe `gateway.status` and use `status.hasAccess` as the entitlement input to host-owned feature gates. Do not put branded paywall UI, account logic, or authorization policy in the shared package.
+
+## 5. Validate before release
+
+Run the deterministic Swift tests in every pull request, then run the [manual sandbox test playbook](sandbox-test-playbook.md) with the host app's non-production RevenueCat configuration before release.
