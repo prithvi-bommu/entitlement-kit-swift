@@ -12,7 +12,7 @@ The package does not contain your public API key, purchase-link URL, plan IDs, c
 
 | Product | Purpose | External dependency |
 | --- | --- | --- |
-| `EntitlementKitCore` | Status model, offline expiry resolution, installation IDs, device-policy contract, URL builder | None |
+| `EntitlementKitCore` | Status model, offline expiry resolution, installation IDs, cache contract, URL builder | None |
 | `EntitlementKitRevenueCat` | RevenueCat customer-info stream and redemption-link adapter | RevenueCat purchases-ios |
 | `EntitlementKitSwiftUI` | Minimal configurable plan picker | SwiftUI |
 
@@ -85,14 +85,12 @@ Map those IDs to each RevenueCat offering's package IDs in `WebBillingConfigurat
 
 Pass an `EntitlementStatusStoring` implementation to the RevenueCat gateway to persist its last provider-reported status. The built-in `UserDefaultsEntitlementStatusStore` restores it through `status.resolved()` at gateway initialization. It downgrades expired trials to `.free` and expired subscriptions or grace periods to `.expired`, preserving plan identity. The provider remains authoritative when reachable.
 
-## Device limits
+## Device access
 
-```swift
-let policy: DevicePolicy = .unlimited
-let cappedPolicy: DevicePolicy = .serverEnforced(maximumDevices: 3)
-```
-
-`unlimited` works entirely with RevenueCat Redemption Links. A numeric maximum requires a backend conforming to `DeviceActivationAuthorizing`; the package intentionally provides the contract but not a fake client-side enforcement mechanism. See [device-policy.md](Docs/device-policy.md).
+EntitlementKit intentionally supports unlimited device redemption. RevenueCat
+Redemption Links handle the cross-device association flow. If a product later
+needs an access-control rule, implement it in that host product rather than
+making a shared billing package enforce a policy it cannot verify securely.
 
 ## Security and operational notes
 
@@ -106,7 +104,6 @@ let cappedPolicy: DevicePolicy = .serverEnforced(maximumDevices: 3)
 
 - [Architecture](Docs/architecture.md)
 - [RevenueCat Web Billing integration](Docs/revenuecat-web-billing.md)
-- [Device policy and server contract](Docs/device-policy.md)
 - [Adoption checklist](Docs/adoption-checklist.md)
 
 ## Development

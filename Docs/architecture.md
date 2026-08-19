@@ -8,11 +8,10 @@ Host app feature gates
         ▼
 EntitlementKitCore ─── EntitlementKitSwiftUI (optional)
         │
-        ├── EntitlementKitRevenueCat
-        └── Host-owned DeviceActivationAuthorizing implementation (optional)
+        └── EntitlementKitRevenueCat
 ```
 
-`EntitlementKitCore` has no billing SDK, network client, or UI dependency. It owns deterministic state semantics, local installation identity, web-link composition, and the device-policy boundary.
+`EntitlementKitCore` has no billing SDK, network client, or UI dependency. It owns deterministic state semantics, local installation identity, offline cache contracts, and web-link composition.
 
 `EntitlementKitRevenueCat` is an optional adapter. It configures RevenueCat with the host app's opaque installation ID, maps `CustomerInfo` to `EntitlementStatus`, listens to `customerInfoStream`, and redeems RevenueCat Web Billing callback URLs.
 

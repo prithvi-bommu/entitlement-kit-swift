@@ -62,12 +62,6 @@ struct EntitlementKitCoreTests {
         #expect(identity.appUserID() == identity.appUserID())
     }
 
-    @Test("device policies retain their configured maximum")
-    func devicePolicyRetainsMaximum() {
-        #expect(DevicePolicy.serverEnforced(maximumDevices: 3) == .serverEnforced(maximumDevices: 3))
-        #expect(DevicePolicy.unlimited != .serverEnforced(maximumDevices: 3))
-    }
-
     @Test("cached status is persisted and expiry resolved by the consumer")
     func cachedStatusRoundTrip() {
         let defaults = UserDefaults(suiteName: "EntitlementKitCoreTests.status")!
