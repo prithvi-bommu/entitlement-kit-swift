@@ -17,7 +17,7 @@
 5. The app forwards the callback URL to `RevenueCatEntitlementGateway.redeem(url:)`.
 6. RevenueCat associates the purchase and `customerInfoStream` supplies the resulting entitlement state.
 
-The library does not claim success when checkout opens. Browser checkout is asynchronous; only redeemed/provider-confirmed customer info should unlock host-app features. `redeem(url:)` returns a `RedemptionResult`: `.notRedemptionURL`, `.redeemed(status)`, or `.failed(reason)`. Hosts should only take a success path for `.redeemed` and should show an appropriate retry or support path for a failure.
+The library does not claim success when checkout opens. Browser checkout is asynchronous; only redeemed/provider-confirmed customer info should unlock host-app features. `redeem(url:)` returns a `RedemptionResult`: `.notRedemptionURL`, `.redeemed(status)`, or `.failed(reason)`. A host should grant access only when the `.redeemed(status)` payload has `status.hasAccess == true`; a redeemed link can still map to an entitlement the host does not grant. Show an appropriate retry or support path for a failure.
 
 ## Expired links and second devices
 

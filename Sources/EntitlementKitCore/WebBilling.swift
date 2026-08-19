@@ -107,8 +107,9 @@ public enum WebPurchaseLinkBuilder {
         return .success(url)
     }
 
-    /// Backward-compatible convenience API. Use `buildURL(configuration:planID:)`
-    /// when the host needs to present a configuration or mapping error.
+    /// Convenience wrapper that applies full configuration validation. Use
+    /// `buildURL(configuration:planID:)` when the host needs to present a
+    /// configuration or mapping error.
     public static func makeURL(
         configuration: WebBillingConfiguration,
         planID: String
