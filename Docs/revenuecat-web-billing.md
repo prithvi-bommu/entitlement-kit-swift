@@ -17,7 +17,7 @@
 5. The app forwards the callback URL to `RevenueCatEntitlementGateway.redeem(url:)`.
 6. RevenueCat associates the purchase and `customerInfoStream` supplies the resulting entitlement state.
 
-The library does not claim success when checkout opens. Browser checkout is asynchronous; only redeemed/provider-confirmed customer info should unlock host-app features.
+The library does not claim success when checkout opens. Browser checkout is asynchronous; only redeemed/provider-confirmed customer info should unlock host-app features. `redeem(url:)` returns a `RedemptionResult`: `.notRedemptionURL`, `.redeemed(status)`, or `.failed(reason)`. A host should grant access only when the `.redeemed(status)` payload has `status.hasAccess == true`; a redeemed link can still map to an entitlement the host does not grant. Show an appropriate retry or support path for a failure.
 
 ## Expired links and second devices
 
@@ -26,3 +26,9 @@ Redemption links are one-time and time-limited. On an expired redemption result,
 ## URL schemes
 
 Use the scheme generated in the RevenueCat dashboard for the specific web configuration. Do not hard-code a shared library scheme. Every consuming application must register its own scheme in its app target configuration.
+
+`WebBillingConfiguration.handlesCallbackURL(_:)` lets the host route only its own callback URLs to the gateway. This is an integration guard; RevenueCat still validates whether a routed link is a redeemable Redemption Link.
+
+## Local configuration checks
+
+Before opening checkout, use `WebPurchaseLinkBuilder.buildURL(configuration:planID:)` when the host needs an actionable error. It rejects a non-HTTPS checkout URL, an anonymous link containing `app_user_id`, an invalid callback scheme, blank plan/package IDs, and an unavailable package mapping. These checks cannot confirm dashboard configuration or an active purchase link, so every release still needs a sandbox test.

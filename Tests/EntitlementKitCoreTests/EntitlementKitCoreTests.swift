@@ -52,6 +52,37 @@ struct EntitlementKitCoreTests {
             callbackScheme: "example-redemption"
         )
         #expect(WebPurchaseLinkBuilder.makeURL(configuration: configuration, planID: "monthly") == nil)
+        #expect(WebPurchaseLinkBuilder.buildURL(configuration: configuration, planID: "monthly") == .failure(.missingPackageID(planID: "monthly")))
+    }
+
+    @Test("web billing configuration rejects unsafe anonymous checkout setup")
+    func webBillingConfigurationValidation() {
+        let configuration = WebBillingConfiguration(
+            purchaseLink: URL(string: "http://pay.example.com/checkout?app_user_id=not-anonymous")!,
+            packageIDsByPlanID: ["": "", "monthly": "$rc_monthly"],
+            callbackScheme: "invalid callback"
+        )
+
+        #expect(configuration.validationIssues == [
+            .purchaseLinkMustUseHTTPS,
+            .purchaseLinkMustNotContainAppUserID,
+            .callbackSchemeIsInvalid,
+            .planIDIsEmpty,
+            .packageIDIsEmpty(planID: "")
+        ])
+        #expect(WebPurchaseLinkBuilder.buildURL(configuration: configuration, planID: "monthly") == .failure(.invalidConfiguration(configuration.validationIssues)))
+    }
+
+    @Test("callback URL matching is case insensitive")
+    func callbackURLMatching() {
+        let configuration = WebBillingConfiguration(
+            purchaseLink: URL(string: "https://pay.example.com/checkout")!,
+            packageIDsByPlanID: ["monthly": "$rc_monthly"],
+            callbackScheme: "example-redemption"
+        )
+
+        #expect(configuration.handlesCallbackURL(URL(string: "EXAMPLE-REDEMPTION://redeem")!))
+        #expect(!configuration.handlesCallbackURL(URL(string: "other-app://redeem")!))
     }
 
     @Test("installation identity is stable")
