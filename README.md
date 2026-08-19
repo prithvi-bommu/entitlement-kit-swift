@@ -21,7 +21,7 @@ The package does not contain your public API key, purchase-link URL, plan IDs, c
 Add this repository in Xcode via **File → Add Package Dependencies**, then select the products your app needs. For SwiftPM:
 
 ```swift
-.package(url: "https://github.com/prithvi-bommu/entitlement-kit-swift.git", from: "0.1.0")
+.package(url: "https://github.com/prithvi-bommu/entitlement-kit-swift.git", from: "0.2.0")
 ```
 
 ## Quick start
@@ -123,8 +123,11 @@ EntitlementKit is a client-side entitlement library, not an account system, a ba
 ## Documentation
 
 - [Architecture](Docs/architecture.md)
+- [Host integration guide](Docs/integration-guide.md)
 - [RevenueCat Web Billing integration](Docs/revenuecat-web-billing.md)
 - [Adoption checklist](Docs/adoption-checklist.md)
+- [Sandbox test playbook](Docs/sandbox-test-playbook.md)
+- [Provider adapter guide](Docs/provider-adapters.md)
 - [Changelog](CHANGELOG.md)
 
 ## Development
