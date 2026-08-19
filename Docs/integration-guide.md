@@ -39,11 +39,16 @@ let billing = WebBillingConfiguration(
     callbackScheme: "dashboard-generated-scheme"
 )
 
-guard let checkoutURL = WebPurchaseLinkBuilder.makeURL(
+let checkoutURL: URL
+switch WebPurchaseLinkBuilder.buildURL(
     configuration: billing,
     planID: "annual"
-) else {
-    // The host should show a configuration-safe fallback rather than opening checkout.
+) {
+case .success(let url):
+    checkoutURL = url
+case .failure(let error):
+    // Present a safe host-owned fallback. `error` distinguishes an invalid
+    // configuration from a missing plan-to-package mapping.
     return
 }
 ```
@@ -56,10 +61,24 @@ Register the dashboard-generated callback scheme in the app target. Forward inco
 
 ```swift
 .onOpenURL { url in
-    guard url.scheme?.caseInsensitiveCompare(billing.callbackScheme) == .orderedSame else {
+    guard billing.handlesCallbackURL(url) else {
         return
     }
-    Task { await gateway.redeem(url: url) }
+    Task {
+        switch await gateway.redeem(url: url) {
+        case .notRedemptionURL:
+            break
+        case .redeemed(let status) where status.hasAccess:
+            // Unlock host-owned features.
+            break
+        case .redeemed:
+            // The link redeemed, but not for an entitlement this host grants.
+            break
+        case .failed:
+            // Present a safe retry or support path.
+            break
+        }
+    }
 }
 ```
 
@@ -67,7 +86,7 @@ The user may open the Redemption Link on a different device. RevenueCat's redemp
 
 ## 4. Gate product features in the host
 
-Observe `gateway.status` and use `status.hasAccess` as the entitlement input to host-owned feature gates. Do not put branded paywall UI, account logic, or authorization policy in the shared package.
+Observe `gateway.status` and use `status.hasAccess` as the entitlement input to host-owned feature gates. A `.redeemed` result alone is not a grant: gate on the result's `status.hasAccess` or the observed `gateway.status`. Do not put branded paywall UI, account logic, or authorization policy in the shared package.
 
 ## 5. Validate before release
 
