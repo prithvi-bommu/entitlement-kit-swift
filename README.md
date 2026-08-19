@@ -115,4 +115,6 @@ swift package resolve
 
 The core target is dependency-free and is covered by Swift Testing. RevenueCat integration should additionally be tested against a sandbox Web Purchase Link and a registered callback scheme in a sample host app.
 
+Every pull request runs the deterministic Web Billing integration-flow suite. It exercises anonymous checkout-link generation, persistent installation identity, cached entitlement restoration, and expiry resolution without a live billing account. A live sandbox smoke test remains a release-readiness check because it needs dashboard configuration and cannot be safely run from ordinary PR CI.
+
 All ongoing changes use topic branches and pull requests into `main`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the review and release workflow.
