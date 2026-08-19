@@ -12,5 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Resolve dependencies
         run: swift package resolve
-      - name: Test
+      - name: Unit tests
         run: swift test
+      - name: Web Billing integration flow
+        run: swift test --filter EntitlementKitIntegrationTests

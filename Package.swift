@@ -20,5 +20,6 @@ let package = Package(
         ),
         .target(name: "EntitlementKitSwiftUI", dependencies: ["EntitlementKitCore"]),
         .testTarget(name: "EntitlementKitCoreTests", dependencies: ["EntitlementKitCore"]),
+        .testTarget(name: "EntitlementKitIntegrationTests", dependencies: ["EntitlementKitCore"]),
     ]
 )
