@@ -35,26 +35,71 @@ extension UserDefaultsInstallationIdentity: InstallationIdentityUpdating {
     public func replaceAppUserID(_ appUserID: String) throws { defaults.set(appUserID, forKey: key) }
 }
 
-/// Stores an opaque UUID in the device-only login keychain.
+/// Stores an opaque UUID in the device-only login keychain. Supply the prior
+/// UserDefaults key when migrating an existing host so active users retain
+/// their RevenueCat identity.
 public final class KeychainInstallationIdentity: InstallationIdentityUpdating, @unchecked Sendable {
-    private let service: String, account: String
+    private let service: String
+    private let account: String
+    private let legacyDefaults: UserDefaults?
+    private let legacyKey: String?
     private let lock = NSLock()
     private var cached: String?
-    public init(service: String, account: String) { self.service = service; self.account = account }
+
+    public init(
+        service: String,
+        account: String,
+        migratingFrom legacyDefaults: UserDefaults? = nil,
+        legacyKey: String? = nil
+    ) {
+        self.service = service
+        self.account = account
+        self.legacyDefaults = legacyDefaults
+        self.legacyKey = legacyKey
+    }
+
     public func appUserID() -> String {
         lock.lock(); defer { lock.unlock() }
         if let cached { return cached }
-        if let data = read(), let value = String(data: data, encoding: .utf8), !value.isEmpty { cached = value; return value }
-        let value = UUID().uuidString.lowercased(); try? replaceAppUserID(value); cached = value; return value
+        if let data = read(), let value = String(data: data, encoding: .utf8), !value.isEmpty {
+            cached = value
+            return value
+        }
+        let value = legacyDefaults?.string(forKey: legacyKey ?? "") ?? UUID().uuidString.lowercased()
+        guard !value.isEmpty, write(value) else { return UUID().uuidString.lowercased() }
+        cached = value
+        return value
     }
+
     public func replaceAppUserID(_ appUserID: String) throws {
-        guard UUID(uuidString: appUserID) != nil, let data = appUserID.data(using: .utf8) else { throw IdentityError.invalidID }
-        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
-        SecItemDelete(query as CFDictionary)
-        var item = query; item[kSecValueData as String] = data; item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { throw IdentityError.storageFailed }
-        lock.lock(); cached = appUserID; lock.unlock()
+        guard UUID(uuidString: appUserID) != nil else { throw IdentityError.invalidID }
+        guard write(appUserID) else { throw IdentityError.storageFailed }
+        lock.lock()
+        cached = appUserID
+        lock.unlock()
     }
-    private func read() -> Data? { var q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account, kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]; var result: CFTypeRef?; return SecItemCopyMatching(q as CFDictionary, &result) == errSecSuccess ? result as? Data : nil }
+
+    private func read() -> Data? {
+        var query = baseQuery()
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        return SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess ? result as? Data : nil
+    }
+
+    private func write(_ value: String) -> Bool {
+        guard let data = value.data(using: .utf8) else { return false }
+        let query = baseQuery()
+        SecItemDelete(query as CFDictionary)
+        var item = query
+        item[kSecValueData as String] = data
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
+    }
+
+    private func baseQuery() -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
+    }
+
     public enum IdentityError: Error { case invalidID, storageFailed }
 }

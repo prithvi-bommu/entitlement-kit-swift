@@ -110,6 +110,12 @@ it only to the customer. Activation requires an `InstallationIdentityUpdating`
 identity; use `KeychainInstallationIdentity` when the adopted identity must
 survive reinstalling the host app.
 
+Codes are derived only from a random UUID. Never derive an App User ID from an
+email address or another guessable identifier: the public SDK key is shipped in
+the app, and a guessable identity could let another person claim access. The
+code checksum catches common transcription mistakes locally; an unknown code is
+also rejected when RevenueCat reports that it would create a new customer.
+
 ```swift
 switch await gateway.activate(withCode: enteredCode) {
 case .activated(let status) where status.hasAccess:
