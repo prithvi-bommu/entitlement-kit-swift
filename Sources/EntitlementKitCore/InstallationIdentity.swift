@@ -65,18 +65,22 @@ public final class KeychainInstallationIdentity: InstallationIdentityUpdating, @
             cached = value
             return value
         }
-        let value = legacyDefaults?.string(forKey: legacyKey ?? "") ?? UUID().uuidString.lowercased()
-        guard !value.isEmpty, write(value) else { return UUID().uuidString.lowercased() }
+        let legacyValue = legacyDefaults?.string(forKey: legacyKey ?? "")
+        let value = (legacyValue?.isEmpty == false ? legacyValue : nil) ?? UUID().uuidString.lowercased()
+        // Memoize even if the keychain is temporarily unavailable. Returning a
+        // different ID within this process would disconnect RevenueCat from an
+        // activation code displayed later in the same launch.
+        _ = write(value)
         cached = value
         return value
     }
 
     public func replaceAppUserID(_ appUserID: String) throws {
         guard UUID(uuidString: appUserID) != nil else { throw IdentityError.invalidID }
-        guard write(appUserID) else { throw IdentityError.storageFailed }
         lock.lock()
+        defer { lock.unlock() }
+        guard write(appUserID) else { throw IdentityError.storageFailed }
         cached = appUserID
-        lock.unlock()
     }
 
     private func read() -> Data? {

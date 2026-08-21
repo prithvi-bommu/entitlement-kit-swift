@@ -24,6 +24,18 @@ struct KeychainInstallationIdentityTests {
         #expect(migrated == legacy)
     }
 
+    @Test func ignoresEmptyLegacyIdentity() throws {
+        let suite = "com.entitlementkit.tests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("", forKey: "legacy")
+        let identity = KeychainInstallationIdentity(service: service, account: account(), migratingFrom: defaults, legacyKey: "legacy")
+        let first = identity.appUserID()
+        #expect(!first.isEmpty)
+        #expect(first == identity.appUserID())
+        #expect(UUID(uuidString: first) != nil)
+    }
+
     @Test func replacesIdentity() throws {
         let identity = KeychainInstallationIdentity(service: service, account: account())
         let target = UUID().uuidString.lowercased()
