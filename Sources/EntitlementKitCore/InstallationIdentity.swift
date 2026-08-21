@@ -1,7 +1,13 @@
 import Foundation
+import Security
 
 public protocol InstallationIdentifying: Sendable {
     func appUserID() -> String
+}
+
+/// An installation identity that can safely adopt a verified cross-device ID.
+public protocol InstallationIdentityUpdating: InstallationIdentifying {
+    func replaceAppUserID(_ appUserID: String) throws
 }
 
 /// Persists one opaque UUID per installation. Use a Keychain-backed implementation
@@ -23,4 +29,81 @@ public final class UserDefaultsInstallationIdentity: InstallationIdentifying, @u
         defaults.set(generated, forKey: key)
         return generated
     }
+}
+
+extension UserDefaultsInstallationIdentity: InstallationIdentityUpdating {
+    public func replaceAppUserID(_ appUserID: String) throws { defaults.set(appUserID, forKey: key) }
+}
+
+/// Stores an opaque UUID in the device-only login keychain. Supply the prior
+/// UserDefaults key when migrating an existing host so active users retain
+/// their RevenueCat identity.
+public final class KeychainInstallationIdentity: InstallationIdentityUpdating, @unchecked Sendable {
+    private let service: String
+    private let account: String
+    private let legacyDefaults: UserDefaults?
+    private let legacyKey: String?
+    private let lock = NSLock()
+    private var cached: String?
+
+    public init(
+        service: String,
+        account: String,
+        migratingFrom legacyDefaults: UserDefaults? = nil,
+        legacyKey: String? = nil
+    ) {
+        self.service = service
+        self.account = account
+        self.legacyDefaults = legacyDefaults
+        self.legacyKey = legacyKey
+    }
+
+    public func appUserID() -> String {
+        lock.lock(); defer { lock.unlock() }
+        if let cached { return cached }
+        if let data = read(), let value = String(data: data, encoding: .utf8), !value.isEmpty {
+            cached = value
+            return value
+        }
+        let legacyValue = legacyDefaults?.string(forKey: legacyKey ?? "")
+        let value = (legacyValue?.isEmpty == false ? legacyValue : nil) ?? UUID().uuidString.lowercased()
+        // Memoize even if the keychain is temporarily unavailable. Returning a
+        // different ID within this process would disconnect RevenueCat from an
+        // activation code displayed later in the same launch.
+        _ = write(value)
+        cached = value
+        return value
+    }
+
+    public func replaceAppUserID(_ appUserID: String) throws {
+        guard UUID(uuidString: appUserID) != nil else { throw IdentityError.invalidID }
+        lock.lock()
+        defer { lock.unlock() }
+        guard write(appUserID) else { throw IdentityError.storageFailed }
+        cached = appUserID
+    }
+
+    private func read() -> Data? {
+        var query = baseQuery()
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        return SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess ? result as? Data : nil
+    }
+
+    private func write(_ value: String) -> Bool {
+        guard let data = value.data(using: .utf8) else { return false }
+        let query = baseQuery()
+        SecItemDelete(query as CFDictionary)
+        var item = query
+        item[kSecValueData as String] = data
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
+    }
+
+    private func baseQuery() -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
+    }
+
+    public enum IdentityError: Error { case invalidID, storageFailed }
 }

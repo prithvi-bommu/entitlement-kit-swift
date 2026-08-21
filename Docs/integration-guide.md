@@ -86,6 +86,13 @@ The user may open the Redemption Link on a different device. RevenueCat's redemp
 
 ## 4. Gate product features in the host
 
+### Optional: activate a second device
+
+For a no-email cross-device flow, display `gateway.activationCode()` on the
+already-entitled device and call `activate(withCode:)` on the second device.
+Use `KeychainInstallationIdentity` or another `InstallationIdentityUpdating`
+implementation so the adopted identity persists after relaunch.
+
 Observe `gateway.status` and use `status.hasAccess` as the entitlement input to host-owned feature gates. A `.redeemed` result alone is not a grant: gate on the result's `status.hasAccess` or the observed `gateway.status`. Do not put branded paywall UI, account logic, or authorization policy in the shared package.
 
 ## 5. Validate before release

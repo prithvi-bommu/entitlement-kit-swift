@@ -16,6 +16,19 @@ public enum RedemptionResult: Equatable, Sendable {
     case failed(RedemptionFailure)
 }
 
+public enum ActivationFailure: Equatable, Sendable {
+    case malformedCode
+    case unknownCode
+    case noEntitlement
+    case identityCannotPersist
+    case providerError
+}
+
+public enum ActivationResult: Equatable, Sendable {
+    case activated(EntitlementStatus)
+    case failed(ActivationFailure)
+}
+
 @MainActor
 public final class RevenueCatEntitlementGateway: ObservableObject {
     @Published public private(set) var status: EntitlementStatus = .free
@@ -72,6 +85,31 @@ public final class RevenueCatEntitlementGateway: ObservableObject {
         case .error:
             return .failed(.providerError)
         }
+    }
+
+    public func activationCode() -> String? {
+        ActivationCode.encode(appUserID: identity.appUserID())
+    }
+
+    /// Activates this installation with a code from another device. The adopted
+    /// identity is persisted before access is reported, so it survives relaunch.
+    public func activate(withCode code: String) async -> ActivationResult {
+        guard let targetID = ActivationCode.decode(code) else { return .failed(.malformedCode) }
+        guard Purchases.isConfigured else { return .failed(.providerError) }
+        guard let updatingIdentity = identity as? any InstallationIdentityUpdating else {
+            return .failed(.identityCannotPersist)
+        }
+        let previousID = identity.appUserID()
+        do {
+            let (info, created) = try await Purchases.shared.logIn(targetID)
+            guard !created else { _ = try? await Purchases.shared.logIn(previousID); return .failed(.unknownCode) }
+            let resolved = map(info)
+            guard resolved.hasAccess else { _ = try? await Purchases.shared.logIn(previousID); return .failed(.noEntitlement) }
+            do { try updatingIdentity.replaceAppUserID(targetID) }
+            catch { _ = try? await Purchases.shared.logIn(previousID); return .failed(.identityCannotPersist) }
+            updateStatus(resolved)
+            return .activated(resolved)
+        } catch { return .failed(.providerError) }
     }
 
     private func map(_ info: CustomerInfo) -> EntitlementStatus {
