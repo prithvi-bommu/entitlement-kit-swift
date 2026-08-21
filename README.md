@@ -101,6 +101,26 @@ For a non-subscription purchase to map to `.lifetime`, include its RevenueCat pr
 
 Pass an `EntitlementStatusStoring` implementation to the RevenueCat gateway to persist its last provider-reported status. The built-in `UserDefaultsEntitlementStatusStore` restores it through `status.resolved()` at gateway initialization. It downgrades expired trials to `.free` and expired subscriptions or grace periods to `.expired`, preserving plan identity. The provider remains authoritative when reachable.
 
+## Activation codes
+
+Hosts can offer a second-device path without collecting an email address. Show
+`gateway.activationCode()` on an entitled device, then pass the code entered on
+the new device to `activate(withCode:)`. A code is a bearer credential, so show
+it only to the customer. Activation requires an `InstallationIdentityUpdating`
+identity; use `KeychainInstallationIdentity` when the adopted identity must
+survive reinstalling the host app.
+
+```swift
+switch await gateway.activate(withCode: enteredCode) {
+case .activated(let status) where status.hasAccess:
+    break // Unlock host-owned features.
+case .failed:
+    break // Show a safe retry or support path.
+default:
+    break
+}
+```
+
 ## Device access
 
 EntitlementKit intentionally supports unlimited device redemption. RevenueCat

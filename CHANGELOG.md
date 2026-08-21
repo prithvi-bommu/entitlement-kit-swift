@@ -13,6 +13,7 @@ All notable user-facing changes are documented here. Releases are tagged only fr
 ### Added
 
 - `RedemptionResult`, `RedemptionFailure`, configuration validation, callback URL routing, and result-based Web Purchase Link construction APIs.
+- Activation codes and a Keychain-backed installation identity for explicit, cross-device entitlement activation.
 
 ## v0.1.0
 
