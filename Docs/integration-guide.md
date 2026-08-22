@@ -57,7 +57,7 @@ Open `checkoutURL` with the platform browser API. Opening checkout is not a purc
 
 ## 3. Register and route the callback
 
-Register the dashboard-generated callback scheme in the app target. Forward incoming URLs to `gateway.redeem(url:)`; the host should handle only URLs routed to its own scheme and unlock features only after the gateway receives provider-confirmed entitlement state.
+Register the dashboard-generated callback scheme in the app target. For a window-based SwiftUI app, forward incoming URLs using `.onOpenURL`:
 
 ```swift
 .onOpenURL { url in
@@ -82,19 +82,33 @@ Register the dashboard-generated callback scheme in the app target. Forward inco
 }
 ```
 
+For a menu-bar or `LSUIElement` app, use `NSApplicationDelegate.application(_:open:)` instead: `.onOpenURL` is unreliable when no window receives the URL.
+
+```swift
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func application(_ application: NSApplication, open urls: [URL]) {
+        Task { @MainActor in
+            for url in urls where billing.handlesCallbackURL(url) {
+                _ = await gateway.redeem(url: url)
+            }
+        }
+    }
+}
+```
+
 The user may open the Redemption Link on a different device. RevenueCat's redemption flow associates it with the local app user identity; EntitlementKit deliberately has no device cap.
 
-## 4. Gate product features in the host
-
-### Optional: activate a second device
+## 4. Offer an activation code for second devices
 
 For a no-email cross-device flow, display `gateway.activationCode()` on the
 already-entitled device and call `activate(withCode:)` on the second device.
 Use `KeychainInstallationIdentity` or another `InstallationIdentityUpdating`
 implementation so the adopted identity persists after relaunch.
 
+## 5. Gate product features in the host
+
 Observe `gateway.status` and use `status.hasAccess` as the entitlement input to host-owned feature gates. A `.redeemed` result alone is not a grant: gate on the result's `status.hasAccess` or the observed `gateway.status`. Do not put branded paywall UI, account logic, or authorization policy in the shared package.
 
-## 5. Validate before release
+## 6. Validate before release
 
 Run the deterministic Swift tests in every pull request, then run the [manual sandbox test playbook](sandbox-test-playbook.md) with the host app's non-production RevenueCat configuration before release.
